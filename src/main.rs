@@ -55,4 +55,5 @@ fn main() {
         output.display(),
         fs::write(output.clone(), manifests)
     );
+    info!("Topic manifest generated successfully.");
 }

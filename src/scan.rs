@@ -1,5 +1,6 @@
 use crate::parser;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use fs::DirEntry;
 use log::{info, warn};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::to_string;
@@ -19,50 +20,63 @@ pub fn generate_manifest(manifest: &[TopicManifest]) -> Result<String> {
     Ok(to_string(manifest)?)
 }
 
+/// Scan the topic under the given path
+fn scan_topic(topic_path: DirEntry) -> Result<TopicManifest> {
+    let topic_name = topic_path.file_name();
+    info!("Scanning topic {:?}", topic_name);
+    // do not include "stable" as a topic
+    if topic_name.to_string_lossy() == "stable" {
+        return Err(anyhow!("'stable' is not a topic"));
+    }
+    let topic_dir = topic_path.path().join("main");
+    // HashSet is used here since it's nearly O(1) in time in contrast to Vec which is O(n) in time when searching
+    let mut all_names: HashSet<String> = HashSet::new();
+    let mut all_arch: Vec<String> = Vec::new();
+    for arch in fs::read_dir(topic_dir)? {
+        let entry = arch?;
+        if entry.file_type()?.is_dir() && entry.file_name().to_string_lossy().starts_with("binary-")
+        {
+            let name = entry.file_name();
+            let arch_name = &name.to_string_lossy()[7..]; // strip "binary-" prefix
+            let packages = entry.path().join("Packages");
+            let contents = fs::read(packages)?;
+            let names = parser::extract_all_names(&contents);
+            if let Ok((left, names)) = names {
+                if !left.is_empty() {
+                    warn!(
+                        "Parser encountered issues, {} bytes remain unparsed",
+                        left.len()
+                    );
+                }
+                // since the parser works with &[u8], we need to convert to String before serializing to JSON
+                for name in names {
+                    all_names.insert(std::str::from_utf8(name)?.to_owned());
+                }
+                all_arch.push(arch_name.to_owned());
+            }
+        }
+    }
+
+    Ok(TopicManifest {
+        name: topic_name.to_string_lossy().to_string(),
+        description: None,
+        arch: all_arch,
+        packages: all_names.into_iter().collect::<Vec<String>>(),
+    })
+}
+
+/// Returns all the topics under the given path
 pub fn collect_topics(path: &Path) -> Result<Vec<TopicManifest>> {
     let dist_dir = path.join("dists");
     let mut manifests: Vec<TopicManifest> = Vec::new();
     let topics = fs::read_dir(dist_dir)?;
     for topic in topics {
-        let topic_path = topic?;
-        let topic_name = topic_path.file_name();
-        if topic_name.to_string_lossy() == "stable" {
+        let manifest = scan_topic(topic?);
+        if let Err(e) = manifest {
+            warn!("Error scanning topic: {:?}. Topic ignored.", e);
             continue;
         }
-        info!("Scanning topic {:?}", topic_name);
-        let topic_dir = topic_path.path().join("main");
-        let mut all_names: HashSet<String> = HashSet::new();
-        let mut all_arch: Vec<String> = Vec::new();
-        for arch in fs::read_dir(topic_dir)? {
-            let entry = arch?;
-            if entry.file_type()?.is_dir()
-                && entry.file_name().to_string_lossy().starts_with("binary-")
-            {
-                let name = entry.file_name();
-                let arch_name = &name.to_string_lossy()[7..];
-                let packages = entry.path().join("Packages");
-                let contents = fs::read(packages)?;
-                let names = parser::extract_all_names(&contents);
-                if let Ok((left, names)) = names {
-                    if left.is_empty() {
-                        warn!(
-                            "Parser encountered issues, {} bytes remain unparsed",
-                            left.len()
-                        );
-                    }
-                    for name in names {
-                        all_names.insert(std::str::from_utf8(name)?.to_owned());
-                    }
-                    all_arch.push(arch_name.to_owned());
-                }
-            }
-        }
-        manifests.push(TopicManifest {
-            name: topic_name.to_string_lossy().to_string(),
-            description: None,
-            arch: all_arch,
-            packages: all_names.into_iter().collect::<Vec<String>>(),
-        });
+        manifests.push(manifest.unwrap());
     }
 
     Ok(manifests)
