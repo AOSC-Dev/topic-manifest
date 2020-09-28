@@ -11,7 +11,7 @@ use nom::{
 #[inline]
 fn key_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
     verify(take_until(":"), |input: &[u8]| {
-        if input.is_empty() {
+        if !input.is_empty() {
             input[0] != b'\n'
         } else {
             false
