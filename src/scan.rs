@@ -2,15 +2,16 @@ use crate::parser;
 use anyhow::{anyhow, Result};
 use fs::DirEntry;
 use log::{info, warn};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::collections::HashSet;
+use std::{collections::HashSet, time::{SystemTime, Duration}};
 use std::{fs, path::Path};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TopicManifest {
     name: String,
     description: Option<String>,
+    date: u64,
     arch: Vec<String>,
     packages: Vec<String>,
 }
@@ -22,6 +23,12 @@ pub fn generate_manifest(manifest: &[TopicManifest]) -> Result<String> {
 
 /// Scan the topic under the given path
 fn scan_topic(topic_path: DirEntry) -> Result<TopicManifest> {
+    let created = topic_path
+        .metadata()?
+        .created()
+        .unwrap_or(SystemTime::UNIX_EPOCH)
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or(Duration::new(0, 0)).as_secs();
     let topic_name = topic_path.file_name();
     info!("Scanning topic {:?}", topic_name);
     // do not include "stable" as a topic
@@ -60,6 +67,7 @@ fn scan_topic(topic_path: DirEntry) -> Result<TopicManifest> {
     Ok(TopicManifest {
         name: topic_name.to_string_lossy().to_string(),
         description: None,
+        date: created,
         arch: all_arch,
         packages: all_names.into_iter().collect::<Vec<String>>(),
     })
