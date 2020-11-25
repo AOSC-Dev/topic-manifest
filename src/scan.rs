@@ -4,7 +4,10 @@ use fs::DirEntry;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
-use std::{collections::HashSet, time::{SystemTime, Duration}};
+use std::{
+    collections::HashSet,
+    time::{Duration, SystemTime},
+};
 use std::{fs, path::Path};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,7 +31,8 @@ fn scan_topic(topic_path: DirEntry) -> Result<TopicManifest> {
         .created()
         .unwrap_or(SystemTime::UNIX_EPOCH)
         .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or(Duration::new(0, 0)).as_secs();
+        .unwrap_or_else(|_| Duration::new(0, 0))
+        .as_secs();
     let topic_name = topic_path.file_name();
     info!("Scanning topic {:?}", topic_name);
     // do not include "stable" as a topic
