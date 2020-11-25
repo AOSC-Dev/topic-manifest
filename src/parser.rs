@@ -48,7 +48,10 @@ fn extract_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
         }
     }
 
-    Err(nom::Err::Error((info.0, ErrorKind::Verify)))
+    Err(nom::Err::Error(nom::error::make_error(
+        info.0,
+        ErrorKind::Verify,
+    )))
 }
 
 #[inline]
