@@ -1,11 +1,12 @@
+use crate::network::{create_client, fetch_descriptions};
 use crate::parser;
 use anyhow::{anyhow, Result};
 use fs::DirEntry;
-use log::{info, warn};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     time::{Duration, SystemTime},
 };
 use std::{fs, path::Path};
@@ -78,9 +79,24 @@ fn scan_topic(topic_path: DirEntry) -> Result<TopicManifest> {
 }
 
 /// Returns all the topics under the given path
-pub fn collect_topics(path: &Path) -> Result<Vec<TopicManifest>> {
+pub fn collect_topics(repo: &str, path: &Path) -> Result<Vec<TopicManifest>> {
     let dist_dir = path.join("dists");
     let mut manifests: Vec<TopicManifest> = Vec::new();
+    let mut descriptions = None;
+    let client = create_client();
+    info!("Fetching topic descriptions from GitHub ...");
+    match client {
+        Ok(client) => match fetch_descriptions(&client, repo) {
+            Ok(d) => descriptions = Some(d),
+            Err(e) => error!("Failed to fetch descriptions: {}", e),
+        },
+        Err(e) => error!("Failed to create a HTTP client: {}", e),
+    }
+    let descriptions = descriptions.unwrap_or_else(|| {
+        warn!("Descriptions unavailable");
+        HashMap::new()
+    });
+
     let topics = fs::read_dir(dist_dir)?;
     for topic in topics {
         let manifest = scan_topic(topic?);
@@ -88,7 +104,13 @@ pub fn collect_topics(path: &Path) -> Result<Vec<TopicManifest>> {
             warn!("Error scanning topic: {:?}. Topic ignored.", e);
             continue;
         }
-        manifests.push(manifest.unwrap());
+        let mut manifest = manifest.unwrap();
+        if let Some(desc) = descriptions.get(&manifest.name) {
+            manifest.description = Some(desc.clone());
+        } else {
+            warn!("{}: No description available.", manifest.name);
+        }
+        manifests.push(manifest);
     }
 
     Ok(manifests)
