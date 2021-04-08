@@ -1,4 +1,4 @@
-use crate::network::{create_client, fetch_descriptions};
+use crate::network::fetch_descriptions;
 use crate::parser;
 use anyhow::{anyhow, Result};
 use fs::DirEntry;
@@ -83,14 +83,10 @@ pub fn collect_topics(repo: &str, path: &Path) -> Result<Vec<TopicManifest>> {
     let dist_dir = path.join("dists");
     let mut manifests: Vec<TopicManifest> = Vec::new();
     let mut descriptions = None;
-    let client = create_client();
     info!("Fetching topic descriptions from GitHub ...");
-    match client {
-        Ok(client) => match fetch_descriptions(&client, repo) {
-            Ok(d) => descriptions = Some(d),
-            Err(e) => error!("Failed to fetch descriptions: {}", e),
-        },
-        Err(e) => error!("Failed to create a HTTP client: {}", e),
+    match fetch_descriptions(repo) {
+        Ok(d) => descriptions = Some(d),
+        Err(e) => error!("Failed to fetch descriptions: {}", e),
     }
     let descriptions = descriptions.unwrap_or_else(|| {
         warn!("Descriptions unavailable");
