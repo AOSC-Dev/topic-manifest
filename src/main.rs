@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use clap::{crate_version, App, Arg};
+use argh::FromArgs;
 use log::{error, info};
 use std::fs;
 
@@ -26,33 +26,28 @@ macro_rules! unwrap_or_show_error {
     }};
 }
 
+#[derive(FromArgs)]
+/// Topics Manifest Generator
+struct TopicManifest {
+    /// specify the directory to debs root
+    #[argh(option, short = 'd')]
+    dir: String,
+    /// specify the GitHub repository name (e.g. AOSC-Dev/aosc-os-abbs)
+    #[argh(option, short = 'p')]
+    repo: String,
+}
+
 fn main() {
     env_logger::init();
-    let matches = App::new("Topics Manifest Generator")
-        .arg(
-            Arg::with_name("dir")
-                .short("d")
-                .required(true)
-                .value_name("DIR")
-                .help("Specify the directory to debs root"),
-        )
-        .arg(
-            Arg::with_name("repo")
-                .short("p")
-                .required(true)
-                .value_name("REPO")
-                .help("Specify the GitHub repository name (e.g. AOSC-Dev/aosc-os-abbs)"),
-        )
-        .version(crate_version!())
-        .get_matches();
-    let dir = matches.value_of("dir").unwrap();
-    let repo = matches.value_of("repo").unwrap();
-    let output = Path::new(dir).join("manifest/topics.json");
+    let args: TopicManifest = argh::from_env();
+    let dir = args.dir;
+    let repo = args.repo;
+    let output = Path::new(&dir).join("manifest/topics.json");
     info!("Preflight scanning for {}...", dir);
     let topics = unwrap_or_show_error!(
         "Unable to scan for topics: {}{}",
         "",
-        scan::collect_topics(repo, Path::new(dir))
+        scan::collect_topics(&repo, Path::new(&dir))
     );
     let manifests = unwrap_or_show_error!(
         "Unable to generate manifest file: {}{}",
