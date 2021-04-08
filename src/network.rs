@@ -60,7 +60,7 @@ pub fn fetch_descriptions(client: &Client, repo: &str) -> Result<HashMap<String,
         let this_page = fetch_description(client, repo, page)?;
         let no_next_page = this_page.len() < 100;
         for entry in this_page {
-            results.insert(entry.head.name, entry.title);
+            results.insert(entry.head.name, entry.title.trim().to_string());
         }
         if no_next_page {
             break;
