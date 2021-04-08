@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::parser::extract_topic_description;
 use anyhow::{anyhow, Result};
 use log::warn;
 use reqwest::{
@@ -18,7 +17,7 @@ struct GitHubBranch {
 #[derive(Deserialize, Clone)]
 struct GitHubPullRequest {
     number: u64,
-    body: String,
+    title: String,
     head: GitHubBranch,
 }
 
@@ -61,14 +60,7 @@ pub fn fetch_descriptions(client: &Client, repo: &str) -> Result<HashMap<String,
         let this_page = fetch_description(client, repo, page)?;
         let no_next_page = this_page.len() < 100;
         for entry in this_page {
-            let content = extract_topic_description(&entry.body.as_bytes());
-            match content {
-                Ok((_, desc)) => {
-                    let result = std::str::from_utf8(desc)?;
-                    results.insert(entry.head.name, result.trim().to_string());
-                }
-                Err(_) => warn!("Failed to parse pull request body for #{}", entry.number),
-            }
+            results.insert(entry.head.name, entry.title);
         }
         if no_next_page {
             break;

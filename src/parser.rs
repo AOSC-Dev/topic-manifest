@@ -1,10 +1,10 @@
 use nom::{
     bytes::complete::{tag, take_until},
-    character::complete::{char, multispace1, space0},
+    character::complete::{char, space0},
     combinator::{map, verify},
     error::ErrorKind,
     multi::many1,
-    sequence::{preceded, separated_pair, terminated, tuple},
+    sequence::{separated_pair, terminated, tuple},
     IResult,
 };
 
@@ -57,65 +57,6 @@ fn extract_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
 #[inline]
 pub fn extract_all_names(input: &[u8]) -> IResult<&[u8], Vec<&[u8]>> {
     many1(terminated(extract_name, tag("\n")))(input)
-}
-
-// parse topic description
-
-fn desc_title(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    take_until("Topic Description")(input)
-}
-
-fn desc_separator(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    take_until("-")(input)
-}
-
-fn desc_start(input: &[u8]) -> IResult<&[u8], ()> {
-    map(
-        tuple((desc_title, desc_separator, single_line, multispace1)),
-        |_| (),
-    )(input)
-}
-
-fn desc_end(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    take_until("\nPackage(s) Affected")(input)
-}
-
-pub fn extract_topic_description(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    preceded(desc_start, desc_end)(input)
-}
-
-// tests
-#[test]
-fn test_desc_title() {
-    let test = &b"<!-- test title -->\nTopic Description"[..];
-    assert_eq!(
-        desc_title(&test),
-        Ok((&b"Topic Description"[..], &b"<!-- test title -->\n"[..]))
-    );
-}
-
-#[test]
-fn test_desc_separator() {
-    let test = &b"Topic Description\n-------\n"[..];
-    assert_eq!(
-        desc_separator(&test),
-        Ok((&b"-------\n"[..], &b"Topic Description\n"[..]))
-    );
-}
-
-#[test]
-fn test_desc_start() {
-    let test = &b"Topic Description\n-------\ncontent"[..];
-    assert_eq!(desc_start(&test), Ok((&b"content"[..], ())));
-}
-
-#[test]
-fn test_extract_topic_description() {
-    let test = &b"<!-- test title -->\nTopic Description\n-------\n\ncontent\ncontent\n\nPackage(s) Affected\n"[..];
-    assert_eq!(
-        extract_topic_description(&test),
-        Ok((&b"\nPackage(s) Affected\n"[..], &b"content\ncontent\n"[..]))
-    );
 }
 
 #[test]
