@@ -14,7 +14,7 @@ log = "0.4"
 walkdir = "2.3"
 argh = "0.1"
 env_logger = { version = "0.9", default-features = false, features = ["atty", "humantime", "termcolor"] }
-nom = "6.1"
+nom = "^7"
 attohttpc = { version = "0.17", features = ["json"] }
 
 [profile.release]
