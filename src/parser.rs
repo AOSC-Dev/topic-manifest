@@ -1,5 +1,5 @@
 use nom::{
-    bytes::complete::{tag, take_until},
+    bytes::complete::take_until,
     character::complete::{char, space0},
     combinator::{map, verify},
     error::ErrorKind,
@@ -36,7 +36,7 @@ fn key_value(input: &[u8]) -> IResult<&[u8], (&[u8], &[u8])> {
 
 #[inline]
 fn single_package(input: &[u8]) -> IResult<&[u8], Vec<(&[u8], &[u8])>> {
-    many1(terminated(key_value, tag("\n")))(input)
+    many1(terminated(key_value, char('\n')))(input)
 }
 
 #[inline]
@@ -56,7 +56,7 @@ fn extract_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
 
 #[inline]
 pub fn extract_all_names(input: &[u8]) -> IResult<&[u8], Vec<&[u8]>> {
-    many1(terminated(extract_name, tag("\n")))(input)
+    many1(terminated(extract_name, char('\n')))(input)
 }
 
 #[test]
